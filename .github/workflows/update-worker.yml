@@ -5,7 +5,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: "11 17 * * 2,4,6" # 每天凌晨1点自动运行
+    - cron: "11 17 * * 2,4,6" # 每周的星期二、星期四和星期六的下午5:11运行
   workflow_dispatch:     # 支持手动运行
 
 permissions:
