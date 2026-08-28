@@ -69,10 +69,10 @@ jobs:
         run: |
           echo -e "\033[34m[清理旧文件]\033[0m"
           # 只删除我们要更新的文件
-          rm -f worker.js version.txt
+          rm -f _worker.js version.txt
           
           echo -e "\033[34m[下载最新 worker.js]\033[0m"
-          wget -q -O worker.js "$DOWNLOAD_URL"
+          wget -q -O _worker.js "$DOWNLOAD_URL"
           
           echo -e "\033[34m[记录新版本号]\033[0m"
           echo "$TAG_NAME" > version.txt
@@ -85,5 +85,5 @@ jobs:
         with:
           commit_message: "🔄 自动同步最新 Worker 版本：${{ env.TAG_NAME }}"
           commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
-          file_pattern: 'worker.js version.txt'
+          file_pattern: '_worker.js version.txt'
           push_options: --force
