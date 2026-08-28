@@ -5,8 +5,8 @@ on:
     branches:
       - main
   schedule:
-    - cron: "11 17 * * 2,4,6" # 每周的星期二、星期四和星期六的下午5:11运行
-  workflow_dispatch:     # 支持手动运行
+    - cron: "11 17 * * 2,4,6" # 每周二、四、六下午 5:11 (UTC时间)
+  workflow_dispatch:      # 支持手动触发
 
 permissions:
   contents: write
@@ -27,7 +27,7 @@ jobs:
             echo "当前本地版本: $LOCAL_VERSION"
           else
             echo "首次同步，没有本地版本。"
-            LOCAL_VERSION=""
+            LOCAL_VERSION="none"
           fi
           echo "LOCAL_VERSION=$LOCAL_VERSION" >> $GITHUB_ENV
 
@@ -39,10 +39,12 @@ jobs:
           RESPONSE=$(curl -s "$API_URL")
           LATEST_RELEASE=$(echo "$RESPONSE" | jq -r '.[0]')
           TAG_NAME=$(echo "$LATEST_RELEASE" | jq -r '.tag_name')
+          
+          # 寻找名为 worker.js 的资产
           DOWNLOAD_URL=$(echo "$LATEST_RELEASE" | jq -r '.assets[] | select(.name == "worker.js") | .browser_download_url')
 
           if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" == "null" ]; then
-            echo -e "\033[31m未找到 worker.zip，退出！\033[0m"
+            echo -e "\033[31m错误：在该 Release 中未找到 worker.js 文件！\033[0m"
             exit 1
           fi
 
@@ -55,26 +57,27 @@ jobs:
         run: |
           echo -e "\033[34m[判断是否需要更新]\033[0m"
           if [ "$LOCAL_VERSION" = "$TAG_NAME" ]; then
-            echo -e "\033[32m已经是最新版本，无需更新。\033[0m"
+            echo -e "\033[32m已经是最新版本 ($TAG_NAME)，无需更新。\033[0m"
             echo "UPDATE_NEEDED=false" >> $GITHUB_ENV
           else
-            echo -e "\033[33m发现新版本，需要更新！\033[0m"
+            echo -e "\033[33m发现新版本 ($TAG_NAME)，准备更新！\033[0m"
             echo "UPDATE_NEEDED=true" >> $GITHUB_ENV
           fi
 
-      - name: 如果需要，清理旧文件并下载新版本
+      - name: 如果需要，同步新版本
         if: env.UPDATE_NEEDED == 'true'
         run: |
           echo -e "\033[34m[清理旧文件]\033[0m"
-          rm -rf ./*
-          echo -e "\033[34m[下载最新 worker.zip]\033[0m"
-          wget -O worker.js "$DOWNLOAD_URL"
-        #   echo -e "\033[34m[解压 worker.zip]\033[0m"
-        #  unzip worker.zip
-        #  echo -e "\033[34m[删除 worker.zip]\033[0m"
-        # rm worker.zip
+          # 只删除我们要更新的文件
+          rm -f worker.js version.txt
+          
+          echo -e "\033[34m[下载最新 worker.js]\033[0m"
+          wget -q -O worker.js "$DOWNLOAD_URL"
+          
           echo -e "\033[34m[记录新版本号]\033[0m"
           echo "$TAG_NAME" > version.txt
+          
+          echo -e "\033[32m同步完成！\033[0m"
 
       - name: 提交更改
         if: env.UPDATE_NEEDED == 'true'
@@ -82,4 +85,5 @@ jobs:
         with:
           commit_message: "🔄 自动同步最新 Worker 版本：${{ env.TAG_NAME }}"
           commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          file_pattern: 'worker.js version.txt'
           push_options: --force
